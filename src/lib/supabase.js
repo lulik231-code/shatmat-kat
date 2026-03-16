@@ -1,11 +1,15 @@
-import { createClient } from '@supabase/supabase-client'
+import { createClient } from '@supabase/supabase-js'
 
-// הבאת המשתנים מכל סוגי הסביבות האפשריים
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY;
+// הגדרת המשתנים - בדיקה של כל האופציות האפשריות
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
-  console.error('❌ שגיאה: משתני Supabase לא נטענו כראוי! בדקי את ההגדרות ב-Vercel.');
+// בדיקה אם המשתנים הגיעו - אם לא, נדפיס אזהרה ברורה ב-Console
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase variables are missing! Check Vercel Environment Variables.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder'
+)
