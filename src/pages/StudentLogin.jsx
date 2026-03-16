@@ -15,8 +15,8 @@ export default function StudentLogin() {
   const [name, setName] = useState('')
   const [isjoining, setIsJoining] = useState(false)
 
-  // רשימת אימוג'ים לבחירה אקראית
-  const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙']
+  // רשימת אימוג'ים חמודים לבחירה אקראית
+  const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙', '🦖', '🐧']
   const [selectedEmoji] = useState(emojis[Math.floor(Math.random() * emojis.length)])
 
   useEffect(() => { loadClassroom() }, [classroomCode])
@@ -39,12 +39,12 @@ export default function StudentLogin() {
     if (!name.trim()) return
     setIsJoining(true)
 
-    // 1. יצירת תלמיד חדש בבסיס הנתונים
+    // יצירת תלמיד חדש בבסיס הנתונים
     const { data: newStudent, error: err } = await supabase
       .from('students')
       .insert([
         { 
-          display_name: name, 
+          display_name: name.trim(), 
           avatar_emoji: selectedEmoji, 
           classroom_id: classroom.id,
           approved: true 
@@ -59,7 +59,7 @@ export default function StudentLogin() {
       return
     }
 
-    // 2. סימון נוכחות אונליין
+    // סימון נוכחות
     await supabase.from('presence').upsert({
       student_id: newStudent.id,
       classroom_id: classroom.id,
@@ -72,36 +72,38 @@ export default function StudentLogin() {
     navigate('/lobby')
   }
 
-  if (loading) return <LoadingScreen text="מחבר אותך לכיתה..." />
+  if (loading) return <LoadingScreen text="מתחבר לכיתה..." />
   if (error) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: 'white' }}>
       <div style={{ fontSize: '4rem' }}>😕</div>
-      <div className="error-msg">{error}</div>
+      <div>{error}</div>
     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', width: '100%', maxWidth: 400 }}>
-        <div style={{ fontSize: '4rem', marginBottom: 10 }}>{classroom?.emoji}</div>
-        <div className="title" style={{ marginBottom: 6, fontSize: '2rem' }}>{classroom?.name}</div>
-        <div className="subtitle" style={{ marginBottom: 32 }}>ברוכים הבאים לשחמט-קט!</div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }} 
+        animate={{ opacity: 1, scale: 1 }} 
+        style={{ textAlign: 'center', width: '100%', maxWidth: 400, background: 'var(--card)', padding: '40px 20px', borderRadius: 30, border: '1px solid rgba(255,255,255,0.1)' }}
+      >
+        <div style={{ fontSize: '5rem', marginBottom: 10 }}>{selectedEmoji}</div>
+        <div className="title" style={{ marginBottom: 10, fontSize: '1.8rem', color: 'white' }}>{classroom?.name}</div>
+        <div className="subtitle" style={{ marginBottom: 30, color: 'rgba(255,255,255,0.6)' }}>הכנס את השם שלך כדי להצטרף</div>
 
-        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-           <div style={{ fontSize: '5rem', marginBottom: 10 }}>{selectedEmoji}</div>
-           
+        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
            <input 
              type="text" 
-             placeholder="איך קוראים לך?" 
+             placeholder="השם שלך כאן..." 
              value={name}
              onChange={(e) => setName(e.target.value)}
              style={{
-               padding: '15px',
-               borderRadius: '12px',
-               border: '2px solid rgba(255,255,255,0.1)',
-               background: 'rgba(255,255,255,0.05)',
+               padding: '18px',
+               borderRadius: '15px',
+               border: '2px solid rgba(255,215,0,0.3)',
+               background: 'rgba(0,0,0,0.2)',
                color: 'white',
-               fontSize: '1.2rem',
+               fontSize: '1.3rem',
                textAlign: 'center',
                outline: 'none'
              }}
@@ -109,18 +111,19 @@ export default function StudentLogin() {
            />
 
            <motion.button
-             whileHover={{ scale: 1.02 }}
-             whileTap={{ scale: 0.98 }}
+             whileHover={{ scale: 1.05 }}
+             whileTap={{ scale: 0.95 }}
              disabled={!name.trim() || isjoining}
              style={{
-               padding: '15px',
-               borderRadius: '12px',
-               background: 'var(--gold, #FFD700)',
+               padding: '18px',
+               borderRadius: '15px',
+               background: 'linear-gradient(45deg, #FFD700, #FFA500)',
                color: 'black',
-               fontWeight: 'bold',
-               fontSize: '1.2rem',
+               fontWeight: '900',
+               fontSize: '1.4rem',
                cursor: 'pointer',
                border: 'none',
+               boxShadow: '0 10px 20px rgba(255,215,0,0.2)',
                opacity: name.trim() ? 1 : 0.5
              }}
            >
