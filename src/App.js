@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -19,11 +18,10 @@ import SoloPage        from './pages/SoloPage'
 import LoadingScreen   from './components/UI/LoadingScreen'
 
 function App() {
-  const { user, profile, student, setUser, setProfile, loading, setLoading } = useStore()
+  const { user, profile, student, setUser, setProfile, setStudent, loading, setLoading } = useStore()
 
   useEffect(() => {
     setLoading(true)
-    // Check existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user)
@@ -32,7 +30,6 @@ function App() {
       setLoading(false)
     })
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -75,7 +72,10 @@ function App() {
         <Route path="/teacher/dashboard" element={
           profile?.role === 'teacher' && profile?.approved ? <TeacherDash /> : <Navigate to="/login" />
         } />
-        <Route path="/lobby" element={student ? <LobbyPage /> : <Navigate to="/" />} />
+        
+        {/* תיקון כאן: מאפשר כניסה ל-Lobby אם יש תלמיד או פרופיל */}
+        <Route path="/lobby" element={(student || profile) ? <LobbyPage /> : <Navigate to="/" />} />
+        
         <Route path="/game/:gameId" element={<GamePage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
