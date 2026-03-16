@@ -15,21 +15,30 @@ export default function StudentLogin() {
   const [name, setName] = useState('')
   const [isjoining, setIsJoining] = useState(false)
 
-  // רשימת אימוג'ים חמודים לבחירה אקראית
-  const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙', '🦖', '🐧']
+  // רשימת אימוג'ים חמודים לבחירה אקראית בכל פעם שהדף נטען
+  const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙', '🦖', '🐧', '🐢', '🐘', '🦒', '🐹']
   const [selectedEmoji] = useState(emojis[Math.floor(Math.random() * emojis.length)])
 
-  useEffect(() => { loadClassroom() }, [classroomCode])
+  useEffect(() => {
+    if (classroomCode) {
+      loadClassroom()
+    }
+  }, [classroomCode])
 
   async function loadClassroom() {
     setLoading(true)
-    const { data: cls } = await supabase
+    const { data: cls, error: clsError } = await supabase
       .from('classrooms')
       .select('*')
-      .eq('invite_code', classroomCode?.toUpperCase())
+      .eq('invite_code', classroomCode.trim())
       .single()
 
-    if (!cls) { setError('קוד כיתה שגוי'); setLoading(false); return }
+    if (clsError || !cls) {
+      setError('קוד כיתה לא נמצא')
+      setLoading(false)
+      return
+    }
+
     setClassroomData(cls)
     setLoading(false)
   }
@@ -39,64 +48,80 @@ export default function StudentLogin() {
     if (!name.trim()) return
     setIsJoining(true)
 
-    // יצירת תלמיד חדש בבסיס הנתונים
-    const { data: newStudent, error: err } = await supabase
-      .from('students')
-      .insert([
-        { 
-          display_name: name.trim(), 
-          avatar_emoji: selectedEmoji, 
-          classroom_id: classroom.id,
-          approved: true 
-        }
-      ])
-      .select()
-      .single()
+    try {
+      // 1. יוצרים תלמיד חדש בטבלה
+      const { data: newStudent, error: studentError } = await supabase
+        .from('students')
+        .insert([
+          { 
+            display_name: name.trim(), 
+            avatar_emoji: selectedEmoji, 
+            classroom_id: classroom.id,
+            approved: true 
+          }
+        ])
+        .select()
+        .single()
 
-    if (err) {
-      console.error(err)
+      if (studentError) throw studentError
+
+      // 2. מעדכנים נוכחות (Presence)
+      await supabase.from('presence').upsert({
+        student_id: newStudent.id,
+        classroom_id: classroom.id,
+        online: true,
+        last_seen: new Date().toISOString(),
+      })
+
+      // 3. שומרים ב-Store ועוברים ללובי
+      setStudent(newStudent)
+      setClassroom(classroom)
+      navigate('/lobby')
+
+    } catch (err) {
+      console.error("Error joining:", err)
+      alert("אופס, קרתה תקלה קטנה בכניסה")
       setIsJoining(false)
-      return
     }
-
-    // סימון נוכחות
-    await supabase.from('presence').upsert({
-      student_id: newStudent.id,
-      classroom_id: classroom.id,
-      online: true,
-      last_seen: new Date().toISOString(),
-    })
-
-    setStudent(newStudent)
-    setClassroom(classroom)
-    navigate('/lobby')
   }
 
-  if (loading) return <LoadingScreen text="מתחבר לכיתה..." />
+  if (loading) return <LoadingScreen text="מחפש את הכיתה שלך..." />
+  
   if (error) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: 'white' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: 'white', background: 'var(--bg)' }}>
       <div style={{ fontSize: '4rem' }}>😕</div>
-      <div>{error}</div>
+      <div style={{ fontSize: '1.5rem' }}>{error}</div>
+      <button onClick={() => navigate('/')} style={{ color: '#FFD700', background: 'none', border: '1px solid #FFD700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>חזרה לדף הבית</button>
     </div>
   )
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
       <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }} 
-        animate={{ opacity: 1, scale: 1 }} 
-        style={{ textAlign: 'center', width: '100%', maxWidth: 400, background: 'var(--card)', padding: '40px 20px', borderRadius: 30, border: '1px solid rgba(255,255,255,0.1)' }}
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        style={{ 
+          textAlign: 'center', 
+          width: '100%', 
+          maxWidth: 400, 
+          background: 'var(--card)', 
+          padding: '40px 20px', 
+          borderRadius: 30, 
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.3)'
+        }}
       >
         <div style={{ fontSize: '5rem', marginBottom: 10 }}>{selectedEmoji}</div>
-        <div className="title" style={{ marginBottom: 10, fontSize: '1.8rem', color: 'white' }}>{classroom?.name}</div>
-        <div className="subtitle" style={{ marginBottom: 30, color: 'rgba(255,255,255,0.6)' }}>הכנס את השם שלך כדי להצטרף</div>
+        <div style={{ marginBottom: 10, fontSize: '1.8rem', color: 'white', fontWeight: 'bold' }}>{classroom?.name}</div>
+        <div style={{ marginBottom: 30, color: 'rgba(255,255,255,0.6)' }}>ברוכים הבאים! איך קוראים לך?</div>
 
         <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
            <input 
              type="text" 
-             placeholder="השם שלך כאן..." 
+             placeholder="הקלד שם כאן..." 
              value={name}
              onChange={(e) => setName(e.target.value)}
+             maxLength={15}
              style={{
                padding: '18px',
                borderRadius: '15px',
@@ -119,7 +144,7 @@ export default function StudentLogin() {
                borderRadius: '15px',
                background: 'linear-gradient(45deg, #FFD700, #FFA500)',
                color: 'black',
-               fontWeight: '900',
+               fontWeight: 'bold',
                fontSize: '1.4rem',
                cursor: 'pointer',
                border: 'none',
