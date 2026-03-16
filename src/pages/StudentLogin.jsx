@@ -15,7 +15,7 @@ export default function StudentLogin() {
   const [name, setName] = useState('')
   const [isjoining, setIsJoining] = useState(false)
 
-  // רשימת אימוג'ים חמודים לבחירה אקראית בכל פעם שהדף נטען
+  // רשימת אימוג'ים חמודים לבחירה אקראית
   const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙', '🦖', '🐧', '🐢', '🐘', '🦒', '🐹']
   const [selectedEmoji] = useState(emojis[Math.floor(Math.random() * emojis.length)])
 
@@ -27,29 +27,32 @@ export default function StudentLogin() {
 
   async function loadClassroom() {
     setLoading(true)
-    const { data: cls, error: clsError } = await supabase
-      .from('classrooms')
-      .select('*')
-      .eq('invite_code', classroomCode.trim())
-      .single()
+    try {
+      const { data: cls, error: clsError } = await supabase
+        .from('classrooms')
+        .select('*')
+        .eq('invite_code', classroomCode.trim())
+        .maybeSingle()
 
-    if (clsError || !cls) {
-      setError('קוד כיתה לא נמצא')
+      if (clsError || !cls) {
+        setError('קוד כיתה לא נמצא')
+      } else {
+        setClassroomData(cls)
+      }
+    } catch (err) {
+      setError('שגיאה בטעינת הכיתה')
+    } finally {
       setLoading(false)
-      return
     }
-
-    setClassroomData(cls)
-    setLoading(false)
   }
 
   async function handleJoin(e) {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || isjoining) return
     setIsJoining(true)
 
     try {
-      // 1. יוצרים תלמיד חדש בטבלה
+      // 1. יצירת תלמיד חדש
       const { data: newStudent, error: studentError } = await supabase
         .from('students')
         .insert([
@@ -65,7 +68,7 @@ export default function StudentLogin() {
 
       if (studentError) throw studentError
 
-      // 2. מעדכנים נוכחות (Presence)
+      // 2. עדכון נוכחות
       await supabase.from('presence').upsert({
         student_id: newStudent.id,
         classroom_id: classroom.id,
@@ -73,14 +76,14 @@ export default function StudentLogin() {
         last_seen: new Date().toISOString(),
       })
 
-      // 3. שומרים ב-Store ועוברים ללובי
+      // 3. שמירה ומעבר ללובי
       setStudent(newStudent)
       setClassroom(classroom)
       navigate('/lobby')
 
     } catch (err) {
       console.error("Error joining:", err)
-      alert("אופס, קרתה תקלה קטנה בכניסה")
+      alert("אופס, קרתה תקלה קטנה")
       setIsJoining(false)
     }
   }
@@ -88,15 +91,15 @@ export default function StudentLogin() {
   if (loading) return <LoadingScreen text="מחפש את הכיתה שלך..." />
   
   if (error) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: 'white', background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20, color: 'white', background: '#1a1a2e' }}>
       <div style={{ fontSize: '4rem' }}>😕</div>
       <div style={{ fontSize: '1.5rem' }}>{error}</div>
-      <button onClick={() => navigate('/')} style={{ color: '#FFD700', background: 'none', border: '1px solid #FFD700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>חזרה לדף הבית</button>
+      <button onClick={() => navigate('/')} style={{ color: '#FFD700', background: 'none', border: '1px solid #FFD700', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}>חזרה</button>
     </div>
   )
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#1a1a2e' }}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }} 
         animate={{ opacity: 1, y: 0 }} 
@@ -104,7 +107,7 @@ export default function StudentLogin() {
           textAlign: 'center', 
           width: '100%', 
           maxWidth: 400, 
-          background: 'var(--card)', 
+          background: '#16213e', 
           padding: '40px 20px', 
           borderRadius: 30, 
           border: '1px solid rgba(255,255,255,0.1)',
@@ -113,7 +116,7 @@ export default function StudentLogin() {
       >
         <div style={{ fontSize: '5rem', marginBottom: 10 }}>{selectedEmoji}</div>
         <div style={{ marginBottom: 10, fontSize: '1.8rem', color: 'white', fontWeight: 'bold' }}>{classroom?.name}</div>
-        <div style={{ marginBottom: 30, color: 'rgba(255,255,255,0.6)' }}>ברוכים הבאים! איך קוראים לך?</div>
+        <div style={{ marginBottom: 30, color: 'rgba(255,255,255,0.6)' }}>איך קוראים לך?</div>
 
         <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
            <input 
@@ -148,7 +151,6 @@ export default function StudentLogin() {
                fontSize: '1.4rem',
                cursor: 'pointer',
                border: 'none',
-               boxShadow: '0 10px 20px rgba(255,215,0,0.2)',
                opacity: name.trim() ? 1 : 0.5
              }}
            >
