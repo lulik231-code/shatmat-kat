@@ -1,4 +1,3 @@
-// src/pages/StudentLogin.jsx
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
@@ -11,10 +10,14 @@ export default function StudentLogin() {
   const navigate = useNavigate()
   const { setStudent, setClassroom } = useStore()
   const [classroom, setClassroomData] = useState(null)
-  const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [entering, setEntering] = useState(null)
+  const [name, setName] = useState('')
+  const [isjoining, setIsJoining] = useState(false)
+
+  // רשימת אימוג'ים לבחירה אקראית
+  const emojis = ['🦁', '🦊', '🐻', '🐼', '🐨', '🐯', '🐸', '🦄', '🐝', '🐙']
+  const [selectedEmoji] = useState(emojis[Math.floor(Math.random() * emojis.length)])
 
   useEffect(() => { loadClassroom() }, [classroomCode])
 
@@ -28,33 +31,48 @@ export default function StudentLogin() {
 
     if (!cls) { setError('קוד כיתה שגוי'); setLoading(false); return }
     setClassroomData(cls)
-
-    const { data: studs } = await supabase
-      .from('students')
-      .select('*')
-      .eq('classroom_id', cls.id)
-      .eq('approved', true)
-      .order('display_name')
-
-    setStudents(studs || [])
     setLoading(false)
   }
 
-  async function selectStudent(student) {
-    setEntering(student.id)
-    // Mark online presence
+  async function handleJoin(e) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setIsJoining(true)
+
+    // 1. יצירת תלמיד חדש בבסיס הנתונים
+    const { data: newStudent, error: err } = await supabase
+      .from('students')
+      .insert([
+        { 
+          display_name: name, 
+          avatar_emoji: selectedEmoji, 
+          classroom_id: classroom.id,
+          approved: true 
+        }
+      ])
+      .select()
+      .single()
+
+    if (err) {
+      console.error(err)
+      setIsJoining(false)
+      return
+    }
+
+    // 2. סימון נוכחות אונליין
     await supabase.from('presence').upsert({
-      student_id: student.id,
+      student_id: newStudent.id,
       classroom_id: classroom.id,
       online: true,
       last_seen: new Date().toISOString(),
     })
-    setStudent(student)
+
+    setStudent(newStudent)
     setClassroom(classroom)
-    setTimeout(() => navigate('/lobby'), 800)
+    navigate('/lobby')
   }
 
-  if (loading) return <LoadingScreen text="טוען כיתה..." />
+  if (loading) return <LoadingScreen text="מחבר אותך לכיתה..." />
   if (error) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 20 }}>
       <div style={{ fontSize: '4rem' }}>😕</div>
@@ -64,54 +82,52 @@ export default function StudentLogin() {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-        <div style={{ textAlign: 'center', marginBottom: 10, fontSize: '2.5rem' }}>
-          {classroom?.emoji}
-        </div>
-        <div className="title" style={{ marginBottom: 6 }}>{classroom?.name}</div>
-        <div className="subtitle" style={{ marginBottom: 32 }}>מי אתה? לחץ על הפנים שלך!</div>
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', width: '100%', maxWidth: 400 }}>
+        <div style={{ fontSize: '4rem', marginBottom: 10 }}>{classroom?.emoji}</div>
+        <div className="title" style={{ marginBottom: 6, fontSize: '2rem' }}>{classroom?.name}</div>
+        <div className="subtitle" style={{ marginBottom: 32 }}>ברוכים הבאים לשחמט-קט!</div>
+
+        <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+           <div style={{ fontSize: '5rem', marginBottom: 10 }}>{selectedEmoji}</div>
+           
+           <input 
+             type="text" 
+             placeholder="איך קוראים לך?" 
+             value={name}
+             onChange={(e) => setName(e.target.value)}
+             style={{
+               padding: '15px',
+               borderRadius: '12px',
+               border: '2px solid rgba(255,255,255,0.1)',
+               background: 'rgba(255,255,255,0.05)',
+               color: 'white',
+               fontSize: '1.2rem',
+               textAlign: 'center',
+               outline: 'none'
+             }}
+             autoFocus
+           />
+
+           <motion.button
+             whileHover={{ scale: 1.02 }}
+             whileTap={{ scale: 0.98 }}
+             disabled={!name.trim() || isjoining}
+             style={{
+               padding: '15px',
+               borderRadius: '12px',
+               background: 'var(--gold, #FFD700)',
+               color: 'black',
+               fontWeight: 'bold',
+               fontSize: '1.2rem',
+               cursor: 'pointer',
+               border: 'none',
+               opacity: name.trim() ? 1 : 0.5
+             }}
+           >
+             {isjoining ? 'נכנס...' : 'אני מוכן! 🚀'}
+           </motion.button>
+        </form>
       </motion.div>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16,
-        width: '100%',
-        maxWidth: 400,
-      }}>
-        {students.map((s, i) => (
-          <motion.button key={s.id}
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.08, type: 'spring', stiffness: 200 }}
-            whileHover={{ scale: 1.08, y: -4 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => selectStudent(s)}
-            style={{
-              background: entering === s.id ? 'rgba(255,215,0,0.2)' : 'var(--card)',
-              border: `2px solid ${entering === s.id ? 'var(--gold)' : 'rgba(255,255,255,0.06)'}`,
-              borderRadius: 20, padding: '20px 10px',
-              cursor: 'pointer', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 8, color: 'white', fontFamily: 'var(--font)',
-              boxShadow: entering === s.id ? '0 0 25px rgba(255,215,0,0.3)' : 'none',
-              transition: 'all 0.2s',
-            }}>
-            <motion.div
-              animate={entering === s.id ? { rotate: [0, -10, 10, -10, 0], scale: [1, 1.2, 1] } : {}}
-              transition={{ duration: 0.5 }}
-              style={{ fontSize: '3.2rem', lineHeight: 1 }}>
-              {s.avatar_emoji}
-            </motion.div>
-            <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{s.display_name}</span>
-          </motion.button>
-        ))}
-      </div>
-
-      {students.length === 0 && (
-        <div style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 40 }}>
-          אין תלמידים בכיתה הזו עדיין
-        </div>
-      )}
     </div>
   )
 }
