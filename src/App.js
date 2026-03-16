@@ -19,7 +19,7 @@ import SoloPage        from './pages/SoloPage'
 import LoadingScreen   from './components/UI/LoadingScreen'
 
 function App() {
-  const { user, profile, setUser, setProfile, loading, setLoading } = useStore()
+  const { user, profile, student, setUser, setProfile, loading, setLoading } = useStore()
 
   useEffect(() => {
     setLoading(true)
