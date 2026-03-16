@@ -18,8 +18,7 @@ import SoloPage        from './pages/SoloPage'
 import LoadingScreen   from './components/UI/LoadingScreen'
 
 function App() {
-  const { user, profile, student, setUser, setProfile, setStudent, loading, setLoading } = useStore()
-
+const { user, profile, student, setUser, setProfile, setStudent, loading, setLoading } = useStore()
   useEffect(() => {
     setLoading(true)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
